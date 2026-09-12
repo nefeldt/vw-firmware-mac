@@ -1,0 +1,4 @@
+# Optional firmware analysis; the renderer/viewer use Python's standard library.
+capstone==5.0.6
+crcmod==1.7
+kaitaistruct==0.10

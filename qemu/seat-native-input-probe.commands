@@ -1,0 +1,30 @@
+slay -f dumper
+mount_ifs -f /dev/hd0t218 -m /seat
+mount_ifs -f /seat/tsd/hmi/tsd.mibstd2.hmi.ifs -m /seat
+export LD_LIBRARY_PATH=/seat/shim:$LD_LIBRARY_PATH:/tsd/lib/common
+mount -Tio-pkt devnp-mx6x.so
+ifconfig fec0 10.0.2.15 up
+route add default 10.0.2.2
+slay -f tsd.mibstd2.cpu.root
+echo '   ipc connectionpair tsd.persmaster.tx tsd.persmaster.rx' > /tmp/pers.conf
+sed '/^service iMX6.DispMg$/r /tmp/pers.conf' /tsd/etc/system/cpu.conf | sed 's|/tsd/hmi|/seat/tsd/hmi|g' > /tmp/cpu-display.conf
+sed '/^GRAPHICS\./s/false/true/; /^ASL.PERSISTENCE /s/false/true/; /^ASL.STARTUP /s/false/true/; /^ASL.SYSTEM /s/false/true/; /^STARTUP\./s/false/true/; /^LSC\./s/false/true/; /^THREADMANAGER\./s/false/true/' /seat/tsd/hmi/HMI/config/logging.properties > /tmp/hmi-logging.properties
+ls -ld /seat/hm; ls '/seat/hm/Resources/skin1/Fonts/SEAT MetaStyle-bold.ttf'; cat /seat/shim/fonts.conf
+echo 'export MIB_DSI_EMPTY_STORE=1 MIB_DSI_POWER_ON=1 MIB_GL_HOST=10.0.2.2 MIB_INPUT=1 FONTCONFIG_PATH=/seat/shim FONTCONFIG_FILE=/seat/shim/fonts.conf' > /tmp/runHMI-trace.sh; sed 's|JAVA_LIBRARY_PATH="|JAVA_LIBRARY_PATH="/seat/shim:|; s/domainTimeout=120000/domainTimeout=5000/; s|logging.properties=HMI/config/logging.properties|logging.properties=/tmp/hmi-logging.properties -Dde.vw.mib.log4mib.console.traces.enabled=true|' /seat/tsd/hmi/runHMI.sh >> /tmp/runHMI-trace.sh
+sed 's|/seat/tsd/hmi/runHMI.sh|/tmp/runHMI-trace.sh|; s/restart global.*/restart ignore/' /tmp/cpu-display.conf > /tmp/cpu-trace.conf
+head -20 /tmp/cpu-display.conf
+echo > /dev/shmem/displaymanager_screen_ready
+export TSD_COMMON_CONFIG=/tsd/etc/system/tsd.mibstd2.cpu.root.conf
+export TSD_LOGCHANNEL=iMX6
+on -p25 /seat/shim/cpu-root -standalone -file=/tmp/cpu-trace.conf -swdlfile=/tsd/etc/system/swdl/cpu_swdl.conf -reset=/tmp/reset.count.cpu > /tmp/root-display.log 2>&1 &
+sleep 65
+telnet 127.0.0.1 5421 > /tmp/thread-trigger.log 2>&1 &
+sleep 3
+cat /tmp/thread-trigger.log
+cat /tmp/root-display.log
+tail -100 /dev/shmem/screenstub.log
+cat /dev/shmem/eglstub.log
+head -120 /dev/shmem/glesstub.log
+tail -120 /dev/shmem/glesstub.log
+head -200 /dev/shmem/dsi-packets.log
+pidin -p j9 threads
