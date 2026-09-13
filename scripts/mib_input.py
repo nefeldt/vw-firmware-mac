@@ -21,9 +21,16 @@ class Hub:
             if not (0<=x<800 and 0<=y<480):raise ValueError('Coordinates outside display')
             gesture={'down':4,'up':1,'release':3,'move':5}[phase]
             # keyboard, gesture, finger, z, x, y, param1, param2, elapsed, validity
-            packets=[self.packet(20,struct.pack('<iiiBiiiiii',13,gesture,0,0,x,y,0,0,1,1))]
+            # For GESTURE_TAP param1 is click count. Zero is rejected by the
+            # original TouchInputDeviceHandler.validateClickGesture().
+            clicks=1 if phase=='up' else 0
+            # Serializer.deserialize_boolean consumes getInt(), not one byte.
+            packets=[self.packet(20,struct.pack('<10i',13,gesture,0,0,x,y,clicks,0,1,1))]
         elif kind=='button':
-            name=event['name'];key=BUTTONS[name];kbd=4 if name=='VOICE' else 1
+            # P0480T configurationmanager.res maps front-panel HMI keys to
+            # KBD_TOUCHSCREEN_FRONT (13). FCC (1) has different media events
+            # and no MENU mapping. Voice also accepts the steering-wheel group.
+            name=event['name'];key=BUTTONS[name];kbd=4 if name=='VOICE' else 13
             packets=[self.packet(25,struct.pack('<iiiii',kbd,key,pressed,0,1)) for pressed in (1,0)]
         elif kind=='encoder':
             name=event['name'];delta=int(event['delta'])

@@ -68,25 +68,22 @@ Place your files as described in [SETUP.md](docs/SETUP.md), then:
 make guest
 ```
 
-Start the viewer and renderer in separate terminals:
+Start everything in one terminal (requires the custom QEMU build below):
 
 ```sh
-make viewer       # http://127.0.0.1:8767/
-make renderer    # local GLES bridge on port 8768
+./start-mib.command
 ```
 
-Start the original guest with input support:
+Press **Ctrl+C in that terminal** to stop QEMU, the viewer and the renderer.
+Alternatively run `./stop-mib.command`. Repeated Ctrl+C does not interrupt cleanup.
 
-```sh
-python scripts/probe_qemu.py \
-  --commands-file qemu/seat-native-input-probe.commands \
-  --report reports/interactive-guest.log \
-  --command-timeout 240 --keep-running
-```
-
-The first boot/mount/start sequence takes several minutes. The viewer explicitly
-shows the age of the most recent frame; an old frame does not prove the guest
-is still running. Touch/button work is tracked in [STATUS.md](docs/STATUS.md).
+The guest build prepares configuration and an HMI launch script once in the
+local transfer image. Normal startup uses three console commands instead of
+repeating configuration edits and diagnostic waits. A measured local run
+completed startup commands in 52 seconds and produced menu frames at about
+125 seconds; timings depend on the host. This is a cold boot, not a VM snapshot.
+The viewer shows frame age; an old frame does not prove the guest is running.
+Touch/button verification is tracked in [STATUS.md](docs/STATUS.md).
 
 For the experimental **native QEMU window**, see [DISPLAY.md](qemu/DISPLAY.md).
 The display extension uses real HMI readback; GLES rendering still runs on the
@@ -121,3 +118,31 @@ notes in tracked files. `claude.md`, `agent.md`, `firmware/`, `extracted/`,
 
 [GPL-2.0-or-later](LICENSE). See [third-party notices](NOTICE.md) and
 [contribution guidelines](CONTRIBUTING.md).
+
+## Run and capture a live snapshot
+
+```sh
+./start-mib.command
+./capture-mib.command
+```
+
+Run `capture-mib.command` while QEMU is running. It briefly pauses the guest,
+creates a standalone disk image containing RAM and device state under
+`snapshots/`, then resumes the guest. The latest capture is recorded in
+`snapshots/live.json`. Snapshot files contain local firmware/runtime data and
+must not be published.
+
+The starter tries the latest snapshot when its QEMU build matches, unless that
+capture is marked as having failed a restore test. Known failed captures are skipped.
+It uses a private APFS clone, preserving the saved image. Without a compatible
+snapshot it boots normally. To explicitly ignore a snapshot:
+
+```sh
+MIB_COLD_BOOT=1 ./start-mib.command
+```
+
+**Live restore is experimental:** the Mac graphics context is external to QEMU.
+A successful capture does not yet establish working graphics and input after
+restore. The current captured image failed a fresh-process restore test and is
+therefore skipped. Use a cold boot if restoration does not produce a responsive menu.
+Ctrl+C in the startup terminal, or `./stop-mib.command`, stops the session.

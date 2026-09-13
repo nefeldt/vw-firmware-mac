@@ -9,13 +9,20 @@
 - The original radio UI renders, including labels and preset tiles.
 - Browser displays actual renderer frames and distinguishes stale frames.
 - Original firmware/eMMC backing files remain unchanged; guest writes use overlays.
+- Native QEMU window displays the original radio and SEAT tile main menu.
+- Emulator skin configuration selects the existing Grid menu at startup.
+- Touch packet layout corrected to the original 32-bit boolean encoding;
+  touch navigation to original Navigation and Sound screens observed.
+- Native MENU button opens the main menu through the guest DSI input bridge.
+  P0480T front-panel keys require keyboard group 13; group 1 has no MENU mapping.
+- Unified startup and Ctrl+C cleanup, including QEMU and display services.
+- Animated English loading screen, verified in an isolated QEMU display test.
 
 ## Implemented, awaiting end-to-end verification
 
-- JNI input receiver for DSIKeyPanel touch, buttons, and encoders.
-- Browser input controls and local input hub.
-- Native QEMU display device with side buttons and wheel-operated knob zones.
-- Persistent interactive guest launcher.
+- Complete touch, front-button, browser-control and encoder coverage. MENU is
+  verified; working transport alone does not verify every control or service.
+- Warm VM snapshot restoration with the external Mac graphics context.
 
 ## Limitations
 

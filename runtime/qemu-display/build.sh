@@ -10,6 +10,11 @@ if [[ ! -f "$ARCHIVE" ]]; then
 fi
 (cd "$ROOT" && shasum -a 256 -c source.sha256)
 if [[ ! -f "$SOURCE/configure" ]]; then tar -xf "$ARCHIVE" -C "$ROOT"; fi
+if patch --dry-run --silent --force -R -p1 -d "$SOURCE" < "$ROOT/cocoa-input.patch" >/dev/null 2>&1; then
+  : # Already applied.
+else
+  patch --forward -p1 -d "$SOURCE" < "$ROOT/cocoa-input.patch"
+fi
 cp "$ROOT/mib-display.c" "$SOURCE/hw/display/mib-display.c"
 python3 - "$SOURCE/hw/display/meson.build" <<'PY'
 from pathlib import Path

@@ -44,6 +44,7 @@
 !/runtime/qemu-display/mib-display.c
 !/runtime/qemu-display/build.sh
 !/runtime/qemu-display/source.sha256
+!/runtime/qemu-display/cocoa-input.patch
 **/__pycache__/
 **/*.pyc
 **/.DS_Store
@@ -68,3 +69,7 @@
 
 !/start-mib.command
 !/stop-mib.command
+
+!/qemu/seat-fast-start.commands
+
+!/capture-mib.command

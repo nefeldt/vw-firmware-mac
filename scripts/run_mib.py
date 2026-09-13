@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Start the local viewer, GPU bridge and persistent native QEMU guest together."""
 import fcntl
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -25,7 +26,7 @@ def main():
     for port in (8766,8767,8768,8769):
         with socket.socket() as probe:
             if probe.connect_ex(('127.0.0.1',port))==0:raise SystemExit(f'Port {port} is already occupied. Run ./stop-mib.command, then ./start-mib.command.')
-    children=[];logs=[]
+    children=[];logs=[];snapshot_work=None
     def stop(signum,frame):raise KeyboardInterrupt
     signal.signal(signal.SIGTERM,stop)
     signal.signal(signal.SIGINT,stop)
@@ -43,7 +44,22 @@ def main():
         if any(p.poll() is not None for p in children):raise RuntimeError('A display service failed; see reports/viewer.log and renderer.log')
         env=dict(os.environ,MIB_QEMU_BIN=str(binary),MIB_QEMU_NATIVE_DISPLAY='1')
         env.setdefault('MIB_FULLSCREEN','1')
-        launch('launcher',[sys.executable,'scripts/probe_qemu.py','--commands-file','qemu/seat-native-input-probe.commands','--report','reports/native-guest.log','--command-timeout','240','--keep-running'],env)
+        manifest=ROOT/'snapshots/live.json'
+        if manifest.exists() and os.environ.get('MIB_COLD_BOOT')!='1':
+            saved=json.loads(manifest.read_text())
+            disk=(ROOT/saved['disk']).resolve()
+            if not disk.is_relative_to((ROOT/'snapshots').resolve()):raise RuntimeError('Snapshot path is outside snapshots/')
+            if saved.get('restore_failed') and os.environ.get('MIB_TRY_SNAPSHOT')!='1':
+                print('Saved snapshot failed its restore test; performing a cold boot.',flush=True)
+            elif saved['qemu_sha256']!=hashlib.sha256(binary.read_bytes()).hexdigest():
+                print('Snapshot belongs to a different QEMU build; performing a cold boot.',flush=True)
+            elif disk.is_file():
+                snapshot_work=ROOT/'qemu'/f'snapshot-run-{os.getpid()}.qcow2'
+                # APFS clone preserves the saved snapshot and avoids copying GBs.
+                subprocess.run(['cp','-c',str(disk),str(snapshot_work)],check=True)
+                env.update(MIB_EMMC_IMAGE=str(snapshot_work),MIB_LOAD_SNAPSHOT=saved['tag'],MIB_SERIAL_SOCKET='/tmp/mib-serial.sock')
+                print('Restoring saved QEMU snapshot. Graphics/input restore is experimental.',flush=True)
+        launch('launcher',[sys.executable,'scripts/probe_qemu.py','--commands-file','qemu/seat-fast-start.commands','--report','reports/native-guest.log','--command-timeout','240','--keep-running'],env)
         print('Starting SEAT MIB2 in QEMU. Boot and HMI initialization take several minutes.',flush=True)
         print('Fullscreen with visible cursor. Ctrl+Option+G releases mouse grab; use the QEMU View menu for fullscreen.',flush=True)
         print('Browser: http://127.0.0.1:8767/ | Stop: Ctrl-C or stop-mib.command',flush=True)
@@ -53,17 +69,31 @@ def main():
             time.sleep(2)
     except KeyboardInterrupt:print('Stopping MIB...',flush=True)
     finally:
+        # Repeated Ctrl-C must not interrupt cleanup and leave QEMU running.
+        for sig in (signal.SIGINT,signal.SIGTERM,signal.SIGHUP):
+            signal.signal(sig,signal.SIG_IGN)
         for p in reversed(children):
             # The launcher can exit before QEMU; terminate the whole owned group.
             try:os.killpg(p.pid,signal.SIGTERM)
             except ProcessLookupError:pass
-        for p in reversed(children):
-            try:p.wait(timeout=8)
-            except subprocess.TimeoutExpired:
-                try:os.killpg(p.pid,signal.SIGKILL)
-                except ProcessLookupError:pass
-                p.wait()
+        deadline=time.monotonic()+8
+        remaining=list(children)
+        while remaining and time.monotonic()<deadline:
+            groups={int(value) for value in subprocess.check_output(
+                ['ps','-axo','pgid='],text=True).split()}
+            alive=[]
+            for p in remaining:
+                p.poll()  # Reap group leaders before checking their descendants.
+                if p.pid in groups:alive.append(p)
+            remaining=alive
+            if remaining:time.sleep(.1)
+        for p in remaining:
+            try:os.killpg(p.pid,signal.SIGKILL)
+            except ProcessLookupError:pass
+        for p in children:p.wait()
         for log in logs:log.close()
         STATE.unlink(missing_ok=True)
+        if snapshot_work:snapshot_work.unlink(missing_ok=True)
         lock.close()
+        print('MIB stopped, including QEMU and display services.',flush=True)
 if __name__=='__main__':main()

@@ -60,11 +60,11 @@ class Frames(socketserver.BaseRequestHandler):
         except (EOFError,ValueError,OSError) as exc: print('Rejected frame:',exc,flush=True)
 PAGE_TEMPLATE='''<!doctype html><meta charset="utf-8"><title>SEAT HMI Display</title>
 <style>body{background:#141619;color:#eee;font:16px system-ui;margin:40px}main{max-width:960px;margin:auto}h1{font-size:24px}img{width:100%;max-width:800px;aspect-ratio:5/3;background:#000;border:1px solid #444}p,a{color:#adb4bc}strong{color:#ffbd69}</style>
-<main><h1>__TITLE__ &middot; 800 &times; 480</h1><p><strong>__DESCRIPTION__</strong></p><img id="screen" alt="Warte auf Bilddaten"><p id="status">Warte auf Bilder...</p><div id="controls"></div><p id="input-status"></p><a href="__LINK__">__LINK_LABEL__</a></main>
-<script>let last=null; async function tick(){try{const s=await(await fetch('__PREFIX__/status')).json();if(s.frames&&s.last_frame!==last){last=s.last_frame;document.querySelector('img').src='__PREFIX__/frame.png?t='+last;}const age=Math.max(0,Math.floor(Date.now()/1000-s.last_frame));document.querySelector('#status').textContent=s.frames ? (age>5?'Gespeicherter letzter Frame | ':'Neue Frames | ')+s.frames+' Frames | Letztes Bild vor '+age+' s' : 'Warte auf Bilder...';}catch(e){document.querySelector('#status').textContent='Keine Verbindung zum lokalen Viewer';}setTimeout(tick,500)}tick();
+<main><h1>__TITLE__ &middot; 800 &times; 480</h1><p><strong>__DESCRIPTION__</strong></p><img id="screen" alt="Waiting for image data"><p id="status">Starting the SEAT system. This may take 2-3 minutes.</p><div id="controls"></div><p id="input-status"></p><a href="__LINK__">__LINK_LABEL__</a></main>
+<script>let last=null; async function tick(){try{const s=await(await fetch('__PREFIX__/status')).json();if(s.frames&&s.last_frame!==last){last=s.last_frame;document.querySelector('img').src='__PREFIX__/frame.png?t='+last;}const age=Math.max(0,Math.floor(Date.now()/1000-s.last_frame));document.querySelector('#status').textContent=s.frames ? (age>5?'Saved last frame | ':'Live frames | ')+s.frames+' frames | Last image: '+age+' s' : 'Starting the SEAT system. This may take 2-3 minutes.';}catch(e){document.querySelector('#status').textContent='No connection to the local viewer';}setTimeout(tick,500)}tick();
 if('__PREFIX__'===''){
 let pending=Promise.resolve(),down=false,moved=false;
-function send(e){pending=pending.then(async()=>{const r=await fetch('/input',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(e)});const s=await r.json();document.querySelector('#input-status').textContent=r.ok?'Eingabe gesendet':s.error;}).catch(()=>{document.querySelector('#input-status').textContent='Eingabe nicht verbunden';});}
+function send(e){pending=pending.then(async()=>{const r=await fetch('/input',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(e)});const s=await r.json();document.querySelector('#input-status').textContent=r.ok?'Input sent':s.error;}).catch(()=>{document.querySelector('#input-status').textContent='Input disconnected';});}
 const screen=document.querySelector('#screen');screen.style.touchAction='none';screen.draggable=false;
 function touch(e,phase){const r=screen.getBoundingClientRect();send({type:'touch',phase,x:Math.max(0,Math.min(799,Math.floor((e.clientX-r.left)/r.width*800))),y:Math.max(0,Math.min(479,Math.floor((e.clientY-r.top)/r.height*480)))});}
 screen.onpointerdown=e=>{down=true;moved=false;screen.setPointerCapture(e.pointerId);touch(e,'down');};
@@ -75,11 +75,11 @@ for(const name of ['VOLUME','TUNE'])for(const delta of [-1,1]){const b=document.
 }
 </script>'''
 def page(diagnostic):
-    values = dict(TITLE='QNX Diagnose' if diagnostic else 'SEAT HMI',
-        DESCRIPTION='Diagnosebild aus QEMU — keine SEAT-HMI' if diagnostic else 'Original-HMI über die QNX-Grafikbrücke. Radiomenü sichtbar; Touch und Tasten werden geprüft.',
+    values = dict(TITLE='QNX diagnostics' if diagnostic else 'SEAT HMI',
+        DESCRIPTION='QEMU diagnostic image' if diagnostic else 'Original SEAT HMI. Touch and button support is experimental.',
         PREFIX='/diagnostic' if diagnostic else '',
         LINK='/' if diagnostic else '/diagnostic',
-        LINK_LABEL='Zur HMI' if diagnostic else 'Separates Diagnosebild')
+        LINK_LABEL='Open HMI' if diagnostic else 'Open diagnostic image')
     result=PAGE_TEMPLATE
     for key,value in values.items(): result=result.replace('__'+key+'__',value)
     return result.encode()

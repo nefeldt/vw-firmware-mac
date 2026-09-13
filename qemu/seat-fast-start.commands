@@ -1,0 +1,3 @@
+slay -f dumper
+mount_ifs -f /dev/hd0t218 -m /seat
+/bin/ksh /seat/shim/start-hmi.sh

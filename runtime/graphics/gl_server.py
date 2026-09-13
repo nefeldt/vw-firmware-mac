@@ -1,6 +1,7 @@
 """Loopback graphics RPC server. Executes guest commands on a Mac GPU context."""
 import ctypes as C
 import json
+import os
 from pathlib import Path
 import socket
 import struct
@@ -23,6 +24,13 @@ def exact(sock,count):
         data.extend(part)
     return bytes(data)
 
+def command_header(sock,timeout=120):
+    """Allow idle displays, but bound partially transmitted commands."""
+    sock.settimeout(None)
+    first=exact(sock,1)
+    sock.settimeout(timeout)
+    return struct.unpack('<II',first+exact(sock,7))
+
 def scalar(typ,data):
     if typ in ('GLfloat','GLclampf'): return C.c_float,struct.unpack('<f',data)[0]
     signed=typ in ('GLint','GLsizei','GLsizeiptr','GLintptr')
@@ -36,7 +44,12 @@ class Bridge:
         self.renderer=MacRenderer()
         self.frames=0
         self.commands=0
-        self.log=(ROOT/'reports/gl-host-calls.log').open('w',buffering=1)
+        self.started=time.monotonic()
+        self.execute_seconds=0.0
+        self.last_png_raw=None
+        # Keep detailed tracing opt-in: thousands of synchronous writes per menu.
+        self.trace=os.environ.get('MIB_GL_TRACE')=='1'
+        self.log=(ROOT/'reports/gl-host-calls.log').open('w',buffering=65536)
 
     def execute(self,op,items):
         self.commands+=1
@@ -44,18 +57,26 @@ class Bridge:
             raw=self.renderer.read_rgba()
             self.frames+=1
             qemu_display.send(raw)
-            temp=ROOT/'reports/hmi-render.png.tmp'
-            temp.write_bytes(png(800,480,raw))
-            temp.replace(ROOT/'reports/hmi-render.png')
-            (ROOT/'reports/hmi-render-status.json').write_text(json.dumps(dict(
+            if raw!=self.last_png_raw:
+                temp=ROOT/'reports/hmi-render.png.tmp'
+                temp.write_bytes(png(800,480,raw))
+                temp.replace(ROOT/'reports/hmi-render.png')
+                self.last_png_raw=raw
+            status=ROOT/'reports/hmi-render-status.json.tmp'
+            status.write_text(json.dumps(dict(
                 source='QNX HMI GLES command bridge',frames=self.frames,
-                commands=self.commands,last_frame=time.time()),indent=2))
+                commands=self.commands,last_frame=time.time(),
+                bridge_execute_seconds=round(self.execute_seconds,4),
+                bridge_uptime_seconds=round(time.monotonic()-self.started,4)),indent=2))
+            status.replace(ROOT/'reports/hmi-render-status.json')
             self.log.write(f'swap frame={self.frames}\n')
+            self.log.flush()
             return 0,b'',[]
         spec=MANIFEST[str(op)]
         if not spec['supported'] or len(items)!=len(spec['params']):
             raise ValueError('Unsupported command or argument count')
-        name=spec['name'];self.log.write(name+'\n')
+        name=spec['name']
+        if self.trace:self.log.write(name+'\n')
         args=[];types=[];outputs=[];keep=[]
         for (typ,_),(mode,size,data) in zip(spec['params'],items):
             if mode==0:
@@ -114,16 +135,19 @@ def serve(port=8768):
             bridge=Bridge()
             try:
                 with connection:
-                    connection.settimeout(120)
                     while True:
-                        op,count=struct.unpack('<II',exact(connection,8))
+                        # A static menu can be idle indefinitely. Retain its GL
+                        # context; only an incomplete command should time out.
+                        op,count=command_header(connection)
                         if count>16:raise ValueError('Too many arguments')
                         items=[]
                         for _ in range(count):
                             mode,size=struct.unpack('<II',exact(connection,8))
                             if size>64*1024*1024:raise ValueError('Argument too large')
                             items.append((mode,size,exact(connection,size) if mode!=2 else b''))
+                        before=time.monotonic()
                         result,extra,outputs=bridge.execute(op,items)
+                        bridge.execute_seconds+=time.monotonic()-before
                         reply=struct.pack('<II',result,len(extra))+extra
                         for output in outputs:reply+=struct.pack('<I',len(output))+output
                         connection.sendall(reply)

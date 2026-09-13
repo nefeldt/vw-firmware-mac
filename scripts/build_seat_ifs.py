@@ -23,6 +23,8 @@ parser.add_argument('--extra', type=Path, action='append', default=[],
                     help='additional directory whose contents are placed at /extra/<name>')
 parser.add_argument('--output', type=Path, default=root/'extracted/P0480T/seat-transfer.ifs')
 parser.add_argument('--no-stage', action='store_true')
+parser.add_argument('--menu-mode', choices=('grid','original'), default='grid',
+                    help='emulator-only menu preference; extracted firmware stays unchanged')
 args = parser.parse_args()
 
 image = 'ghcr.io/frida/qnx-tools:latest'
@@ -47,6 +49,18 @@ for name, src in inputs:
     dest.parent.mkdir(parents=True, exist_ok=True)
     shutil.copytree(src, dest, symlinks=True,
                     ignore=shutil.ignore_patterns('._*', '.DS_Store'))
+if args.menu_mode=='grid':
+    # Empty emulated persistence can retain FlowList from early skin0 startup.
+    # Force the SEAT skin's existing Grid preference when the real skin loads.
+    infos=list((stage/'hmi/Resources').glob('skin*/info.txt'))
+    if not infos:raise SystemExit('No skin info files found')
+    for info in infos:
+        data=info.read_text()
+        if 'DefaultMenuMode=Grid' not in data:
+            raise SystemExit(f'Unexpected menu default in {info}')
+        if 'UserSwitchableMenuMode=true' not in data:
+            raise SystemExit(f'Unexpected menu switch setting in {info}')
+        info.write_text(data.replace('UserSwitchableMenuMode=true','UserSwitchableMenuMode=false'))
 (stage/'seat.build').write_text('\n'.join(build)+'\n')
 env = dict(os.environ, COPYFILE_DISABLE='1')
 tar = subprocess.Popen(['tar', '--no-xattrs', '-cf', '-', '-C', str(stage), '.'], stdout=subprocess.PIPE, env=env)

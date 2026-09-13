@@ -21,6 +21,7 @@ static int transfer(void *data, unsigned size, int sending) {
     }
     return 1;
 }
+#include "gl_rpc_request.h"
 static uint32_t rpc(unsigned op, unsigned count, RpcArg *args, void *extra, unsigned capacity) {
     uint32_t header[2]={op,count}, reply[2], result=0;
     unsigned i;
@@ -40,12 +41,7 @@ static uint32_t rpc(unsigned op, unsigned count, RpcArg *args, void *extra, unsi
         setsockopt(rpc_fd,SOL_SOCKET,SO_SNDTIMEO,&timeout,sizeof(timeout));
         if(connect(rpc_fd,(struct sockaddr *)&addr,sizeof(addr))) goto fail;
     }
-    if(!transfer(header,sizeof(header),1)) goto fail;
-    for(i=0;i<count;i++) {
-        uint32_t h[2]={args[i].mode,args[i].data ? args[i].size : 0};
-        if(h[1]>67108864 || !transfer(h,8,1)) goto fail;
-        if(h[0]!=2 && h[1] && !transfer(args[i].data,h[1],1)) goto fail;
-    }
+    if(!send_request(header,count,args)) goto fail;
     if(!transfer(reply,8,0)) goto fail;
     result=reply[0];
     if(reply[1]>capacity) goto fail;

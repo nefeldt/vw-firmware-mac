@@ -28,6 +28,7 @@ def main():
     if not overlay.exists():
         run('qemu-img','create','-f','qcow2','-F','raw','-b',ROOT/'extracted/eMMC/emmc.img',overlay)
         run('qemu-img','resize',overlay,'4G')
+    run(py,'scripts/prepare_startup.py')
     run(py,'scripts/build_seat_ifs.py')
     print('Emulator image ready. Do not flash it to a vehicle.')
 if __name__=='__main__':main()
