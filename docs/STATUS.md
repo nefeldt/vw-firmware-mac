@@ -22,7 +22,6 @@
 
 - Complete touch, front-button, browser-control and encoder coverage. MENU is
   verified; working transport alone does not verify every control or service.
-- Warm VM snapshot restoration with the external Mac graphics context.
 
 ## Limitations
 

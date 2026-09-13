@@ -99,7 +99,7 @@ An attached readable card does not yet establish a working navigation menu.
 Set `MIB_DATA_DIR=/absolute/path/to/local-data` to use another input folder.
 `MIB_CPU_IMAGE` and `MIB_EMMC_IMAGE` override individual boot files. Older
 workspaces without either prepared local-data file retain the legacy generated
-paths. Compatible snapshot selection still follows the rules below.
+paths. Every launch boots from the prepared images.
 
 ## Build and run
 
@@ -134,7 +134,7 @@ The guest build prepares configuration and an HMI launch script once in the
 local transfer image. Normal startup uses three console commands instead of
 repeating configuration edits and diagnostic waits. A measured local run
 completed startup commands in 52 seconds and produced menu frames at about
-125 seconds; timings depend on the host. This is a cold boot, not a VM snapshot.
+125 seconds; timings depend on the host. Every launch performs a cold boot.
 The viewer shows frame age; an old frame does not prove the guest is running.
 Touch/button verification is tracked in [STATUS.md](docs/STATUS.md).
 
@@ -171,31 +171,3 @@ notes in tracked files. `claude.md`, `agent.md`, `firmware/`, `extracted/`,
 
 [GPL-2.0-or-later](LICENSE). See [third-party notices](NOTICE.md) and
 [contribution guidelines](CONTRIBUTING.md).
-
-## Run and capture a live snapshot
-
-```sh
-./start-mib.command
-./capture-mib.command
-```
-
-Run `capture-mib.command` while QEMU is running. It briefly pauses the guest,
-creates a standalone disk image containing RAM and device state under
-`snapshots/`, then resumes the guest. The latest capture is recorded in
-`snapshots/live.json`. Snapshot files contain local firmware/runtime data and
-must not be published.
-
-The starter tries the latest snapshot when its QEMU build matches, unless that
-capture is marked as having failed a restore test. Known failed captures are skipped.
-It uses a private APFS clone, preserving the saved image. Without a compatible
-snapshot it boots normally. To explicitly ignore a snapshot:
-
-```sh
-MIB_COLD_BOOT=1 ./start-mib.command
-```
-
-**Live restore is experimental:** the Mac graphics context is external to QEMU.
-A successful capture does not yet establish working graphics and input after
-restore. The current captured image failed a fresh-process restore test and is
-therefore skipped. Use a cold boot if restoration does not produce a responsive menu.
-Ctrl+C in the startup terminal, or `./stop-mib.command`, stops the session.

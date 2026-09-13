@@ -17,16 +17,7 @@
   calls, call audio and HMI controls. Verify with a real connected phone.
 - [ ] Make Bluetooth usable inside the guest, including actual adapter transport
   and pairing. A running process alone is not success.
-- [ ] Repair and verify fresh-process live snapshot restoration, including CPU,
-  external graphics state and input connections; only then call warm startup working.
 - [ ] Measure responsiveness after the packed graphics transport change.
-
-## Current snapshot status
-
-`./capture-mib.command` saved a standalone local QEMU image. The fresh-process
-restore test failed, with the CPU at a prefetch-abort vector and no new graphics
-or input connection. The starter skips this known failed capture and cold-boots.
-Capture and run commands are documented in README.md. Snapshot files are private.
 
 ## Service findings
 

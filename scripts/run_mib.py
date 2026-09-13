@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """Start the local viewer, GPU bridge and persistent native QEMU guest together."""
 import fcntl
-import hashlib
 import json
 import os
 from pathlib import Path
@@ -36,7 +35,7 @@ def main():
     for port in (8766,8767,8768,8769):
         with socket.socket() as probe:
             if probe.connect_ex(('127.0.0.1',port))==0:raise SystemExit(f'Port {port} is already occupied. Run ./stop-mib.command, then ./start-mib.command.')
-    children=[];logs=[];snapshot_work=None
+    children=[];logs=[]
     def stop(signum,frame):raise KeyboardInterrupt
     signal.signal(signal.SIGTERM,stop)
     signal.signal(signal.SIGINT,stop)
@@ -62,21 +61,6 @@ def main():
         if env.get('MIB_MAP_IMAGE'):
             print(f'Using map SD card: {env["MIB_MAP_IMAGE"]}',flush=True)
         env.setdefault('MIB_FULLSCREEN','1')
-        manifest=ROOT/'snapshots/live.json'
-        if manifest.exists() and os.environ.get('MIB_COLD_BOOT')!='1':
-            saved=json.loads(manifest.read_text())
-            disk=(ROOT/saved['disk']).resolve()
-            if not disk.is_relative_to((ROOT/'snapshots').resolve()):raise RuntimeError('Snapshot path is outside snapshots/')
-            if saved.get('restore_failed') and os.environ.get('MIB_TRY_SNAPSHOT')!='1':
-                print('Saved snapshot failed its restore test; performing a cold boot.',flush=True)
-            elif saved['qemu_sha256']!=hashlib.sha256(binary.read_bytes()).hexdigest():
-                print('Snapshot belongs to a different QEMU build; performing a cold boot.',flush=True)
-            elif disk.is_file():
-                snapshot_work=ROOT/'qemu'/f'snapshot-run-{os.getpid()}.qcow2'
-                # APFS clone preserves the saved snapshot and avoids copying GBs.
-                subprocess.run(['cp','-c',str(disk),str(snapshot_work)],check=True)
-                env.update(MIB_EMMC_IMAGE=str(snapshot_work),MIB_LOAD_SNAPSHOT=saved['tag'],MIB_SERIAL_SOCKET='/tmp/mib-serial.sock')
-                print('Restoring saved QEMU snapshot. Graphics/input restore is experimental.',flush=True)
         launch('launcher',[sys.executable,'scripts/probe_qemu.py','--commands-file','qemu/seat-fast-start.commands','--report','reports/native-guest.log','--command-timeout','240','--keep-running'],env)
         print('Starting SEAT MIB2 in QEMU. Boot and HMI initialization take several minutes.',flush=True)
         print('Fullscreen with visible cursor. Ctrl+Option+G releases mouse grab; use the QEMU View menu for fullscreen.',flush=True)
@@ -111,7 +95,6 @@ def main():
         for p in children:p.wait()
         for log in logs:log.close()
         STATE.unlink(missing_ok=True)
-        if snapshot_work:snapshot_work.unlink(missing_ok=True)
         lock.close()
         print('MIB stopped, including QEMU and display services.',flush=True)
 if __name__=='__main__':main()
