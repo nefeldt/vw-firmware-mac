@@ -20,6 +20,10 @@
 !/scripts/*.py
 !/scripts/*.sh
 /guest/*
+!/guest/audio/
+/guest/audio/*
+!/guest/audio/*.c
+!/guest/audio/*.sh
 !/guest/dsi/
 !/guest/shim/
 /guest/dsi/*

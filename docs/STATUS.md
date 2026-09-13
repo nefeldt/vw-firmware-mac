@@ -13,6 +13,7 @@
 - Emulator skin configuration selects the existing Grid menu at startup.
 - Touch packet layout corrected to the original 32-bit boolean encoding;
   touch navigation to original Navigation and Sound screens observed.
+- User confirmed working touch and side-button input after recovery.
 - Native MENU button opens the main menu through the guest DSI input bridge.
   P0480T front-panel keys require keyboard group 13; group 1 has no MENU mapping.
 - Unified startup and Ctrl+C cleanup, including QEMU and display services.
