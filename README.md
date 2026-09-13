@@ -48,6 +48,59 @@ layout expected by this project.
 Supply only files you are entitled to use. This project operates on emulator
 copies and does not require flashing the car. See [local input layout](docs/SETUP.md).
 
+## Local files used by the starter
+
+Keep private inputs in `local-data/` in the project directory. This entire folder
+is excluded from Git. The current workspace contains:
+
+```text
+local-data/
+  firmware/MST2_EU_SE_ZR_P0480T.7z
+  emmc/emmc.img
+  emmc/eMMC_VW_EU_ZR_P0480T_CM_patched.7z
+  maps/STD2_2510_EU1_202525.zip
+  maps/navigation-sd.img
+  patches/SE_ZR_P0480T_FEC_ALL_CID_OFF_CP_OFF_SPORT_FIXED.7z
+  runtime/cpu-qemu-debug.ifs
+  runtime/emmc-overlay.qcow2
+```
+
+| File | Purpose / requirement |
+| --- | --- |
+| `firmware/MST2_EU_SE_ZR_P0480T.7z` | Original tested SEAT firmware archive; used for preparation/rebuilding. |
+| `emmc/emmc.img` | Unpacked compatible raw eMMC dump; required as the prepared disk's backing file. |
+| `emmc/eMMC_VW_EU_ZR_P0480T_CM_patched.7z` | Archive used in this experiment; optional after the raw dump is extracted. |
+| `maps/STD2_2510_EU1_202525.zip` | Supplied navigation map archive. Source for the virtual SD card; not yet verified in the navigation engine. |
+| `maps/navigation-sd.img` | Generated FAT32 SD card. Automatically attached when present; QNX card/metadata reading verified, navigation engine integration still in progress. |
+| `patches/SE_ZR_P0480T_FEC_ALL_CID_OFF_CP_OFF_SPORT_FIXED.7z` | Optional user-supplied patch, stored for inspection. Not automatically applied. |
+| `runtime/cpu-qemu-debug.ifs` | Generated emulator boot image; required to start. |
+| `runtime/emmc-overlay.qcow2` | Generated, prepared emulator disk; required to start. Its backing path is `../emmc/emmc.img`. |
+
+Run `./start-mib.command`. It loads the two prepared files from
+`local-data/runtime/`; QEMU reads the raw dump through the disk's backing path.
+Archives are preparation inputs: startup does **not** extract multi-gigabyte
+archives or rebuild the emulator on every run. Copying archives alone into a
+fresh checkout does not replace the preparation/build steps in
+[SETUP.md](docs/SETUP.md). The current workspace already has prepared boot files.
+
+Prepare the map card once (requires `brew install mtools` and space for both
+extraction and the generated card):
+
+```sh
+python scripts/prepare_map_card.py local-data/maps/STD2_2510_EU1_202525.zip
+```
+
+This checks ZIP CRCs, builds a 16 GiB sparse FAT32 image and reads back the map
+metadata and database root. It refuses to overwrite an existing card. On startup,
+QEMU uses a temporary write overlay to preserve the prepared card. Override its
+location with `MIB_MAP_IMAGE`; set `MIB_MAP_IMAGE=` to skip attaching it.
+An attached readable card does not yet establish a working navigation menu.
+
+Set `MIB_DATA_DIR=/absolute/path/to/local-data` to use another input folder.
+`MIB_CPU_IMAGE` and `MIB_EMMC_IMAGE` override individual boot files. Older
+workspaces without either prepared local-data file retain the legacy generated
+paths. Compatible snapshot selection still follows the rules below.
+
 ## Build and run
 
 Requires Python 3.12+, QEMU including `qemu-img`/`qemu-io`, Docker, and a locally

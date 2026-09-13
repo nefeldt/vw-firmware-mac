@@ -81,4 +81,5 @@ if args.output.exists():
 args.output.write_bytes(data)
 print(f'{args.output}: {len(data)} bytes in {time.time()-t0:.1f}s; build file:\n' + '\n'.join(build))
 if not args.no_stage:
-    subprocess.run([sys.executable, str(root/'scripts/stage_seat_partition.py')], check=True)
+    subprocess.run([sys.executable, str(root/'scripts/stage_seat_partition.py'),
+                    '--payload', str(args.output.resolve())], check=True)

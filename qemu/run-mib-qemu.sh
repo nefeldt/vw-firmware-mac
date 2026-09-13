@@ -1,7 +1,7 @@
 #!/bin/zsh
 set -eu
 ROOT=${0:A:h}/..
-IMAGE="$ROOT/extracted/P0480T/cpu-qemu-debug.ifs"
+IMAGE=${MIB_CPU_IMAGE:-$ROOT/extracted/P0480T/cpu-qemu-debug.ifs}
 EMMC_IMAGE=${MIB_EMMC_IMAGE:-$ROOT/qemu/emmc-overlay.qcow2}
 if [[ ! -f "$IMAGE" ]]; then
   print -u2 'Run scripts/prepare_qemu_cpu.py with --debug-shell first.'
@@ -10,6 +10,11 @@ fi
 QEMU_BIN=${MIB_QEMU_BIN:-qemu-system-arm}
 DISPLAY_ARGS=(-display none)
 RESTORE_ARGS=()
+MAP_ARGS=()
+if [[ -n ${MIB_MAP_IMAGE:-} ]]; then
+  [[ -f "$MIB_MAP_IMAGE" ]] || { print -u2 "Missing map card: $MIB_MAP_IMAGE"; exit 1; }
+  MAP_ARGS=(-drive "file=$MIB_MAP_IMAGE,if=none,id=navmaps,format=raw,snapshot=on" -device sd-card,drive=navmaps,bus=/mib-sdhc1/sd-bus)
+fi
 DISK_SNAPSHOT=on
 SERIAL_ARGS=(-serial stdio)
 if [[ -n ${MIB_SERIAL_SOCKET:-} ]]; then
@@ -27,6 +32,6 @@ exec nice -n 10 "$QEMU_BIN" -M sabrelite \
   -cpu cortex-a9,reset-cbar=0x00a00000 -smp 2 -m 1024M \
   "${DISPLAY_ARGS[@]}" "${SERIAL_ARGS[@]}" -monitor none \
   -drive "file=$EMMC_IMAGE,if=none,id=emmc,format=qcow2,snapshot=$DISK_SNAPSHOT" \
-  -device emmc,drive=emmc \
+  -device emmc,drive=emmc "${MAP_ARGS[@]}" \
   -device "loader,file=$IMAGE,addr=0x10800000,force-raw=on" \
   -device loader,addr=0x10805fb4,cpu-num=0 "${RESTORE_ARGS[@]}"

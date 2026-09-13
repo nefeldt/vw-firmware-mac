@@ -1,0 +1,14 @@
+--- a/hw/arm/sabrelite.c
++++ b/hw/arm/sabrelite.c
+@@ -70,6 +70,11 @@
+ 
+         object_property_set_link(OBJECT(&s->soc), bus_name,
+                                  OBJECT(s->canbus[i]), &error_fatal);
++    }
++
++    /* Stable device IDs let the MIB runner select the physical SD slots. */
++    for (int i = 0; i < FSL_IMX6_NUM_USDHCS; i++) {
++        DEVICE(&s->soc.usdhc[i])->id = g_strdup_printf("mib-sdhc%d", i + 1);
+     }
+ 
+     qdev_realize(DEVICE(&s->soc), NULL, &error_fatal);

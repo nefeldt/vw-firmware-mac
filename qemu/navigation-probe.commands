@@ -1,0 +1,6 @@
+slay -f dumper; slay -f tsd.mibstd2.config.dfilter
+mount_ifs -f /seat/extra/navigation-inputs/navbinimage_EU/tsd/bin/ifs/nav.ifs -m /
+mount_ifs -f /seat/extra/navigation-inputs/navimage/tsd/bin/ifs/navimage.ifs -m /
+mkdir -p /tsd/etc/nav /tsd/var/nav
+cp -R /seat/extra/navigation-inputs/navconfig_EU_seat/tsd/etc/nav/. /tsd/etc/nav/
+LD_LIBRARY_PATH=/tsd/lib/common:/tsd/lib/shield:/tsd/lib/middleware TSD_COMMON_CONFIG=/tsd/etc/system/tsd.mibstd2.nav.conf /tsd/bin/nav/tsd.mibstd2.nav >/tmp/navigation-probe.log 2>&1 &

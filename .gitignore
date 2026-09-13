@@ -33,6 +33,8 @@
 !/qemu/run-mib-qemu.sh
 !/qemu/seat-native-input-probe.commands
 !/qemu/seat-gl-font-ifs-probe.commands
+!/qemu/navigation-probe.commands
+!/qemu/navigation-headless.commands
 !/qemu/DISPLAY.md
 /runtime/*
 !/runtime/graphics/
@@ -45,6 +47,7 @@
 !/runtime/qemu-display/build.sh
 !/runtime/qemu-display/source.sha256
 !/runtime/qemu-display/cocoa-input.patch
+!/runtime/qemu-display/sd-slots.patch
 **/__pycache__/
 **/*.pyc
 **/.DS_Store

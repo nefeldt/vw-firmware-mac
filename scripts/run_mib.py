@@ -21,8 +21,18 @@ def main():
         print('MIB is already running. Use the SEAT MIB2 window, or ./stop-mib.command to stop it.')
         return
     binary=ROOT/'runtime/qemu-display/build/qemu-system-arm'
-    for path in (binary,ROOT/'extracted/P0480T/cpu-qemu-debug.ifs',ROOT/'qemu/emmc-overlay.qcow2'):
-        if not path.is_file():raise SystemExit(f'Missing {path.relative_to(ROOT)}. See README build steps.')
+    data_dir=Path(os.environ.get('MIB_DATA_DIR',str(ROOT/'local-data'))).resolve()
+    prepared=data_dir/'runtime'
+    # Existing workspaces can keep their previous generated layout until imported.
+    default_cpu=prepared/'cpu-qemu-debug.ifs'
+    default_disk=prepared/'emmc-overlay.qcow2'
+    if not default_cpu.exists() and not default_disk.exists():
+        default_cpu=ROOT/'extracted/P0480T/cpu-qemu-debug.ifs'
+        default_disk=ROOT/'qemu/emmc-overlay.qcow2'
+    cpu=Path(os.environ.get('MIB_CPU_IMAGE',str(default_cpu))).resolve()
+    disk_image=Path(os.environ.get('MIB_EMMC_IMAGE',str(default_disk))).resolve()
+    for path in (binary,cpu,disk_image):
+        if not path.is_file():raise SystemExit(f'Missing {path}. See README local-data setup.')
     for port in (8766,8767,8768,8769):
         with socket.socket() as probe:
             if probe.connect_ex(('127.0.0.1',port))==0:raise SystemExit(f'Port {port} is already occupied. Run ./stop-mib.command, then ./start-mib.command.')
@@ -42,7 +52,15 @@ def main():
         launch('renderer',[sys.executable,'runtime/graphics/gl_server.py'])
         time.sleep(1)
         if any(p.poll() is not None for p in children):raise RuntimeError('A display service failed; see reports/viewer.log and renderer.log')
-        env=dict(os.environ,MIB_QEMU_BIN=str(binary),MIB_QEMU_NATIVE_DISPLAY='1')
+        env=dict(os.environ,MIB_QEMU_BIN=str(binary),MIB_QEMU_NATIVE_DISPLAY='1',
+                 MIB_CPU_IMAGE=str(cpu),MIB_EMMC_IMAGE=str(disk_image))
+        print(f'Using prepared boot image: {cpu}',flush=True)
+        print(f'Using emulator disk: {disk_image}',flush=True)
+        map_card=data_dir/'maps/navigation-sd.img'
+        if map_card.is_file():
+            env.setdefault('MIB_MAP_IMAGE',str(map_card))
+        if env.get('MIB_MAP_IMAGE'):
+            print(f'Using map SD card: {env["MIB_MAP_IMAGE"]}',flush=True)
         env.setdefault('MIB_FULLSCREEN','1')
         manifest=ROOT/'snapshots/live.json'
         if manifest.exists() and os.environ.get('MIB_COLD_BOOT')!='1':

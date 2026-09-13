@@ -1,0 +1,10 @@
+slay -f dumper; slay -f tsd.mibstd2.config.dfilter; slay -f tsd.mibstd2.cpu.root
+mount_ifs -f /dev/hd0t218 -m /seat
+mount_ifs -f /seat/extra/navigation-inputs/navbinimage_EU/tsd/bin/ifs/nav.ifs -m /
+mount_ifs -f /seat/extra/navigation-inputs/navimage/tsd/bin/ifs/navimage.ifs -m /
+slay -f tsd.mibstd2.cpu.root
+mount -t dos /dev/sd10t12 /maps
+sed -e 's|useautomounter=1|useautomounter=0|' -e 's|#databasepath=/sd1/|databasepath=/maps/|' -e 's|# allowed_area_id   = 00|allowed_area_id = 00|' -e 's|/tsd/etc/nav/|/seat/extra/navigation-inputs/navconfig_EU_seat/tsd/etc/nav/|g' -e 's|/tsd/var/nav/|/tmp/|g' /seat/extra/navigation-inputs/navconfig_EU_seat/tsd/etc/nav/mibstd2_nav_target.ini >/tmp/nav-test.ini
+echo 'control create startup_control_imx6_tx' >/tmp/nav-root.conf; echo 'defaultpriority 17' >>/tmp/nav-root.conf; echo 'application_watchdog start_delay=180 reset_delay=180' >>/tmp/nav-root.conf; echo 'service iMX6.Navigation' >>/tmp/nav-root.conf; echo '   ipc connectionpair tsd.persmaster.tx tsd.persmaster.rx' >>/tmp/nav-root.conf; echo '   servicecontrol create tsd.navigation.control' >>/tmp/nav-root.conf; echo '   client yes' >>/tmp/nav-root.conf; echo '   command /tsd/bin/nav/tsd.mibstd2.nav /tmp/nav-test.ini tsd.navigation.control' >>/tmp/nav-root.conf; echo '   autostart yes' >>/tmp/nav-root.conf; echo '   restart ignore' >>/tmp/nav-root.conf; echo '   envar LD_LIBRARY_PATH /tsd/lib/common:/tsd/lib/shield:/tsd/lib/middleware:/tsd/lib/sqlite:/tsd/lib/crypto' >>/tmp/nav-root.conf; echo '   logstdout navigation' >>/tmp/nav-root.conf
+LD_LIBRARY_PATH=/tsd/lib/common TSD_COMMON_CONFIG=/tsd/etc/system/tsd.mibstd2.cpu.root.conf TSD_LOGCHANNEL=iMX6 /seat/shim/cpu-root -standalone -file=/tmp/nav-root.conf -swdlfile=/tsd/etc/system/swdl/cpu_swdl.conf -reset=/tmp/nav-reset.count >/tmp/nav-root.log 2>&1 &
+sleep 25; cat /tmp/nav-root.log; pidin ar
