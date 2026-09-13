@@ -4,10 +4,13 @@ Run the original **SEAT MIB2 Standard HMI** inside an ARM QNX guest in QEMU.
 The original HMI's GLES commands execute on a macOS OpenGL backend. This is an
 experimental emulator integration, not a replacement infotainment UI.
 
-**Verified:** the original SEAT radio screen renders with text, frequency,
-preset tiles, and controls. **In progress:** native QEMU window integration,
-touch, hardware buttons, and rotary encoders. A visible screen does not yet
-mean every function works. See [current status](docs/STATUS.md).
+**Working:** the original SEAT HMI renders in the native QEMU window, including
+its tile menu and radio screen. Mouse clicks on the HMI act as touchscreen input,
+and the on-screen side buttons work; input recovery was confirmed by the user.
+The window also provides clickable +/− controls for the rotary knobs.
+Navigation, audio, and phone connectivity still require additional service work;
+a responding button does not mean its underlying feature is operational.
+See [current status](docs/STATUS.md).
 
 ## Tested configuration
 
@@ -136,7 +139,10 @@ repeating configuration edits and diagnostic waits. A measured local run
 completed startup commands in 52 seconds and produced menu frames at about
 125 seconds; timings depend on the host. Every launch performs a cold boot.
 The viewer shows frame age; an old frame does not prove the guest is running.
-Touch/button verification is tracked in [STATUS.md](docs/STATUS.md).
+Click the HMI display to use its touchscreen controls. Use the side buttons to
+navigate and the +/− controls below the display to operate the virtual knobs.
+The mouse cursor remains visible in the native window. Further checks across
+window sizes and individual controls are tracked in [TODO.md](docs/TODO.md).
 
 For the experimental **native QEMU window**, see [DISPLAY.md](qemu/DISPLAY.md).
 The display extension uses real HMI readback; GLES rendering still runs on the
