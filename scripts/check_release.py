@@ -7,6 +7,12 @@ import sys
 ROOT=Path(__file__).resolve().parent.parent
 FORBIDDEN={'firmware','extracted','reports','vendor','preview','.venv','build','__pycache__'}
 SUFFIXES={'.so','.dylib','.jxe','.jar','.class','.img','.qcow2','.ifs','.bin','.boot','.ttf','.otf','.png','.heic','.log','.iso','.7z'}
+PATTERNS=(
+    r'/Users/' r'[A-Za-z0-9_.-]+/',
+    r'/private/' r'var/folders/',
+    r'-----BEGIN ' r'(?:RSA |OPENSSH |EC )?PRIVATE KEY-----',
+    r'gh' r'[pousr]_[A-Za-z0-9]{30,}',
+)
 def audit():
     result=subprocess.run(['git','ls-files','-z'],cwd=ROOT,capture_output=True)
     if result.returncode:raise SystemExit('Run inside a Git checkout. Stage the intended public source before auditing.')
@@ -20,7 +26,7 @@ def audit():
         if len(data)>1024*1024:errors.append(f'Unexpected large file: {name}')
         if b'\0' in data:errors.append(f'Binary content: {name}')
         text=data.decode('utf-8',errors='replace')
-        for pattern in (r'/Users/[A-Za-z0-9_.-]+/',r'/private/var/folders/',r'-----BEGIN (?:RSA |OPENSSH |EC )?PRIVATE KEY-----',r'gh[pousr]_[A-Za-z0-9]{30,}'):
+        for pattern in PATTERNS:
             if re.search(pattern,text):errors.append(f'Personal path or credential pattern: {name}');break
     for name in ('claude.md','agent.md','firmware/example.7z','extracted/eMMC/emmc.img','reports/hmi-render.png','guest/dsi/include/jni.h'):
         check=subprocess.run(['git','check-ignore','--quiet',name],cwd=ROOT)
